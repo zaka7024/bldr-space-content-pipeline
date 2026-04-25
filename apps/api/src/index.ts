@@ -2,11 +2,13 @@ import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { getConfig } from './config/config.js'
 import { connectMongoDB } from './db/mongodb.js'
+import { generate } from './content-pipeline/domain/agent.js'
 
 const app = new Hono()
 
-app.get('/', (c) => {
-  return c.text('Hello Hono!')
+app.get('/', async (c) => {
+  const result = await generate('Hello, how are you?')
+  return c.text('Agent response: ' + result.text)
 })
 
 app.get('/health', (c) => {
