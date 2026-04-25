@@ -71,6 +71,25 @@ export interface CalendarInput {
   startDate?:        string;
 }
 
+export interface IdeaOverridesInput {
+  date?: string;
+  dayOfWeek?: string;
+  title?: string;
+  description?: string;
+  suggestedCaption?: string;
+  hashtags?: string[];
+  contentTheme?: string;
+  postType?: 'image' | 'carousel';
+  platform?: 'instagram' | 'facebook' | 'both';
+  bestTimeToPost?: string;
+  justification?: string;
+}
+
+export interface GenerateIdeaOptions {
+  overrides?: IdeaOverridesInput;
+  referenceImageUrls?: string[];
+}
+
 export function generateCalendar(input: CalendarInput): Promise<ContentCalendar> {
   return request<ContentCalendar>('/content-calendar', { method: 'POST', body: JSON.stringify(input) });
 }
@@ -79,9 +98,17 @@ export function generateContentForIdea(
   businessContextId: string,
   calendarId:        string,
   ideaId:            string,
+  options:           GenerateIdeaOptions = {},
 ): Promise<ContentCalendar> {
   return request<ContentCalendar>(
     `/content-calendar/${calendarId}/ideas/${ideaId}/generate`,
-    { method: 'POST', body: JSON.stringify({ businessContextId }) },
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        businessContextId,
+        overrides: options.overrides,
+        referenceImageUrls: options.referenceImageUrls,
+      }),
+    },
   );
 }

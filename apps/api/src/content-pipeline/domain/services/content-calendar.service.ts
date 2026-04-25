@@ -243,6 +243,89 @@ function buildDateSlots(startDate: Date, daysRange: number): { date: string; day
   });
 }
 
+function topByValue(stats: Record<string, number>): { key: string; value: number } | null {
+  const entry = Object.entries(stats).sort(([, a], [, b]) => b - a)[0];
+  if (!entry) return null;
+  return { key: entry[0], value: entry[1] };
+}
+
+function buildEvidenceFacts(insights: EngagementInsights, realContent: RealContent): string[] {
+  const facts: string[] = [];
+
+  if (insights.instagram) {
+    if (insights.instagram.bestDays.length > 0) {
+      facts.push(`Instagram best days are ${insights.instagram.bestDays.join(', ')}`);
+    }
+    const topType = topByValue(insights.instagram.avgByType);
+    if (topType) {
+      facts.push(`Instagram ${topType.key} posts average about ${topType.value} interactions`);
+    }
+    const topDay = topByValue(insights.instagram.avgByDay);
+    if (topDay) {
+      facts.push(`Instagram ${topDay.key} averages about ${topDay.value} interactions`);
+    }
+  }
+
+  if (insights.facebook) {
+    if (insights.facebook.bestDays.length > 0) {
+      facts.push(`Facebook best days are ${insights.facebook.bestDays.join(', ')}`);
+    }
+    const fbTopDay = topByValue(insights.facebook.avgByDay);
+    if (fbTopDay) {
+      facts.push(`Facebook ${fbTopDay.key} averages about ${fbTopDay.value} interactions`);
+    }
+    facts.push(`Facebook average engagement per post is about ${insights.facebook.avgEngagement}`);
+  }
+
+  if (realContent.instagram?.topCaptions?.length) {
+    const c = realContent.instagram.topCaptions[0]!;
+    facts.push(`Top Instagram post sample has ${c.likes} likes and ${c.comments} comments`);
+  }
+
+  if (realContent.facebook?.topPosts?.length) {
+    const p = realContent.facebook.topPosts[0]!;
+    facts.push(`Top Facebook post sample has ${p.likes} likes, ${p.shares} shares, ${p.comments} comments`);
+  }
+
+  return [...new Set(facts)].slice(0, 8);
+}
+
+function ensureEvidenceJustification(idea: {
+  date: string;
+  dayOfWeek: string;
+  bestTimeToPost: string;
+  justification: string;
+}, evidenceFacts: string[]): string {
+  const raw = idea.justification?.trim() ?? '';
+  const mentionsDayOrDate =
+    raw.toLowerCase().includes(idea.dayOfWeek.toLowerCase()) || raw.includes(idea.date);
+  const mentionsTime = raw.includes(idea.bestTimeToPost);
+  const hasEvidenceLabel = /evidence\s*:/i.test(raw);
+  const hasNumericSignal = /\d/.test(raw);
+
+  const prefixNeeded = !mentionsDayOrDate || !mentionsTime;
+  const evidenceNeeded = !hasEvidenceLabel || !hasNumericSignal;
+
+  if (!prefixNeeded && !evidenceNeeded) {
+    return raw;
+  }
+
+  const schedulePrefix = prefixNeeded
+    ? `Scheduled for ${idea.dayOfWeek} (${idea.date}) at ${idea.bestTimeToPost}.`
+    : '';
+
+  const selectedEvidence = evidenceFacts.slice(0, 2);
+  const evidenceText = selectedEvidence.length > 0
+    ? `Evidence: ${selectedEvidence.join(' | ')}.`
+    : 'Evidence: based on available engagement patterns and top-performing historical posts.';
+
+  if (!raw) {
+    return [schedulePrefix, evidenceText].filter(Boolean).join(' ').trim();
+  }
+
+  return [schedulePrefix, raw, evidenceNeeded ? evidenceText : ''].filter(Boolean).join(' ').trim();
+}
+
 // ── Prompt builder ────────────────────────────────────────────────
 
 /** Brand, channel and engagement context shared by calendar and single-idea generation. */
@@ -341,14 +424,21 @@ function buildPrompt(params: {
   brand:          Record<string, unknown> | null;
   insights:       EngagementInsights;
   realContent:    RealContent;
+  evidenceFacts:  string[];
   dateSlots:      { date: string; dayOfWeek: string }[];
   websiteContent: { title: string; content: string }[];
 }): string {
-  const { dateSlots } = params;
+  const { dateSlots, evidenceFacts } = params;
   const prefix = getBrandContextPromptPrefix(params);
   const slots = dateSlots.map((s) => `${s.date} (${s.dayOfWeek})`).join(', ');
+  const evidenceBlock = evidenceFacts.length > 0
+    ? evidenceFacts.map((fact, i) => `${i + 1}. ${fact}`).join('\n')
+    : 'No numeric evidence available; still reference the strongest observable context signals.';
 
   return `${prefix}
+
+== EVIDENCE FACTS TO CITE ==
+${evidenceBlock}
 
 == TASK ==
 Generate exactly one content idea for EACH of the following dates:
@@ -358,6 +448,8 @@ Rules:
 - Study the real captions and posts above — mirror the brand's authentic voice, recurring phrases and topics
 - Vary post types (image, carousel) and platforms — do not repeat the same format every day
 - Anchor bestTimeToPost and justification to the engagement stats above
+- In justification, explicitly mention the chosen date/day and bestTimeToPost, and include at least one concrete signal from context (best posting day, avg engagement by day/type, or top post pattern)
+- In justification, include a sentence starting with "Evidence:" and cite at least two concrete facts from the evidence list above (preferably with numbers)
 - Suggested captions must feel like they were written by this brand, not a generic template
 - Hashtags must include the brand's own top-performing tags mixed with relevant trending ones
 - contentTheme must map to one of the brand's content themes listed above
@@ -389,6 +481,7 @@ export async function generateContentCalendar(input: GenerateContentCalendarInpu
     ctx.instagram as InstagramAggregatedResult | null,
     ctx.facebook  as FacebookScraperResult | null,
   );
+  const evidenceFacts = buildEvidenceFacts(insights, realContent);
 
   // 3. Build date slots
   const start = startDate ? new Date(startDate) : new Date();
@@ -406,6 +499,7 @@ export async function generateContentCalendar(input: GenerateContentCalendarInpu
     brand:          ctx.brand ?? null,
     insights,
     realContent,
+    evidenceFacts,
     dateSlots,
     websiteContent: (ctx.websiteContent ?? []) as { title: string; content: string }[],
   });
@@ -416,12 +510,22 @@ export async function generateContentCalendar(input: GenerateContentCalendarInpu
     prompt,
   });
 
+  const normalizedIdeas = object.ideas.map((idea) => ({
+    ...idea,
+    justification: ensureEvidenceJustification({
+      date: idea.date,
+      dayOfWeek: idea.dayOfWeek,
+      bestTimeToPost: idea.bestTimeToPost,
+      justification: idea.justification,
+    }, evidenceFacts),
+  }));
+
   // 5. Persist and return
   const doc = await ContentCalendarModel.create({
     businessContextId: new Types.ObjectId(businessContextId),
     startDate:         start,
     endDate:           end,
-    ideas:             object.ideas,
+    ideas:             normalizedIdeas,
   });
 
   return doc;

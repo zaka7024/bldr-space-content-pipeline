@@ -143,6 +143,8 @@ app.post(
         businessContextId: parsed.data.businessContextId,
         calendarId,
         ideaId,
+        overrides: parsed.data.overrides,
+        referenceImageUrls: parsed.data.referenceImageUrls,
       })
       return c.json(doc, 200)
     } catch (err) {

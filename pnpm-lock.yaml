@@ -56,6 +56,9 @@ importers:
       mongoose:
         specifier: ^9.5.0
         version: 9.5.0
+      openai:
+        specifier: ^6.34.0
+        version: 6.34.0(zod@4.3.6)
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -3256,6 +3259,21 @@ packages:
         optional: true
     dependencies:
       zod: 3.25.76
+    dev: false
+
+  /openai@6.34.0(zod@4.3.6):
+    resolution: {integrity: sha512-yEr2jdGf4tVFYG6ohmr3pF6VJuveP0EA/sS8TBx+4Eq5NT10alu5zg2dmxMXMgqpihRDQlFGpRt2XwsGj+Fyxw==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
+    dependencies:
+      zod: 4.3.6
     dev: false
 
   /optionator@0.9.4:

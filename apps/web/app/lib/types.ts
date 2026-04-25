@@ -92,6 +92,7 @@ export interface GeneratedIdeaContent {
   creatorNotes:        string;
   /** data: URLs, ready for <img src> */
   generatedImageDataUrls?: string[];
+  referenceImageUrls?:  string[];
   imageModel?:         string;
   imageSize?:          string;
   generatedAt:         string;

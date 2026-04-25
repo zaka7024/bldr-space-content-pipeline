@@ -232,6 +232,7 @@ export default function Home() {
           <CalendarView
             calendar={calendar}
             businessContextId={calendar.businessContextId}
+            context={context}
             onCalendarUpdate={setCalendar}
             onError={(msg) => setError(msg)}
             onBack={() => setStage('result')}
