@@ -4,7 +4,6 @@ import { ApifyClient } from 'apify-client';
 import axios from 'axios';
 import type {
   FacebookRawPost,
-  FacebookMediaItem,
   FacebookPhotoMedia,
   FacebookVideoMedia,
   FacebookImageRef,

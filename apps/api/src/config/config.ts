@@ -6,6 +6,7 @@ export type AppConfig = {
   nodeEnv: NodeEnv
   port: number
   mongodbUri: string
+  jwtSecret: string
 }
 
 let cached: AppConfig | null = null
@@ -36,10 +37,13 @@ function parseConfig(): AppConfig {
   if (!mongodbUri || mongodbUri.trim() === '') {
     throw new Error('Missing or empty MONGODB_URI')
   }
+  const jwtSecret = process.env.JWT_SECRET ?? 'dev-secret-change-in-production'
+
   return {
     nodeEnv: parseNodeEnv(process.env.NODE_ENV),
     port: parsePort(process.env.PORT, 4000),
     mongodbUri,
+    jwtSecret,
   }
 }
 

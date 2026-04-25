@@ -13,13 +13,17 @@
     "ai": "^6.0.168",
     "apify-client": "^2.23.0",
     "axios": "^1.15.2",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
     "exa-js": "^2.12.1",
     "hono": "^4.12.15",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.5.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.11.17",
     "tsx": "^4.7.1",
     "typescript": "^5.8.3"

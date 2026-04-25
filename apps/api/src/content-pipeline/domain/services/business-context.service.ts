@@ -10,8 +10,9 @@ import type { BrandingProfile } from '../tools/scrape-brand.js';
 // ── Types ─────────────────────────────────────────────────────────
 
 export interface BuildBusinessContextInput {
-  businessName: string;
-  websiteUrl:   string;
+  userId:        string;
+  businessName:  string;
+  websiteUrl:    string;
   instagramUrl?: string;
   facebookUrl?:  string;
   postsLimit?:   number;
@@ -133,7 +134,7 @@ const DIRECT_EXEC = { toolCallId: 'business-context-service', messages: [] } as 
 >[1];
 
 export async function buildBusinessContext(input: BuildBusinessContextInput) {
-  const { businessName, websiteUrl, instagramUrl, facebookUrl, postsLimit = 10 } = input;
+  const { userId, businessName, websiteUrl, instagramUrl, facebookUrl, postsLimit = 10 } = input;
 
   // Step 1: Website content
   const websiteContent = await fetchWebsiteContent(websiteUrl);
@@ -154,6 +155,7 @@ export async function buildBusinessContext(input: BuildBusinessContextInput) {
 
   // Step 6: Persist to MongoDB
   const doc = await BusinessContextModel.create({
+    userId,
     businessName,
     websiteUrl,
     instagramUrl,

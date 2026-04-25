@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import { Schema, Types, model } from 'mongoose';
 
 const websitePageSchema = new Schema(
   {
@@ -25,6 +25,7 @@ const brandVoiceSchema = new Schema(
 
 const businessContextSchema = new Schema(
   {
+    userId:         { type: Types.ObjectId, ref: 'User', required: true, index: true },
     businessName:   { type: String, required: true, index: true },
     websiteUrl:     { type: String, required: true },
     instagramUrl:   { type: String },
