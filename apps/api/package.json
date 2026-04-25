@@ -13,8 +13,10 @@
     "apify-client": "^2.23.0",
     "axios": "^1.15.2",
     "dotenv": "^17.4.2",
+    "exa-js": "^2.12.1",
     "hono": "^4.12.15",
-    "mongoose": "^9.5.0"
+    "mongoose": "^9.5.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^20.11.17",
