@@ -167,7 +167,7 @@ async function generateImageDataUrl(
           prompt,
           size,
           n: 1,
-          input_fidelity: 'high',
+      
         });
         return await extractFirstDataUrl(edited);
       }
