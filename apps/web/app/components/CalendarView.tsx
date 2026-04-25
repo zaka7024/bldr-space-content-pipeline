@@ -4,13 +4,17 @@ import { useState } from 'react';
 import {
   Clock, CalendarDays, Image as ImageIcon, LayoutGrid,
   Camera, Users, Globe, ChevronDown, ChevronUp, Hash,
-  MessageSquare, ArrowLeft,
+  MessageSquare, ArrowLeft, Sparkles, Loader2,
 } from 'lucide-react';
 import type { ContentCalendar, ContentIdea } from '../lib/types';
+import { generateContentForIdea } from '../lib/api';
 
 interface Props {
-  calendar: ContentCalendar;
-  onBack:   () => void;
+  calendar:            ContentCalendar;
+  businessContextId:   string;
+  onCalendarUpdate:    (calendar: ContentCalendar) => void;
+  onError:             (message: string) => void;
+  onBack:              () => void;
 }
 
 // ── Badge helpers ─────────────────────────────────────────────────
@@ -50,12 +54,39 @@ function PlatformBadge({ platform }: { platform: ContentIdea['platform'] }) {
 
 // ── Single idea card ──────────────────────────────────────────────
 
-function IdeaCard({ idea, index }: { idea: ContentIdea; index: number }) {
-  const [expanded, setExpanded] = useState(false);
+function IdeaCard({
+  idea,
+  businessContextId,
+  calendarId,
+  onUpdated,
+  onError,
+}: {
+  idea:               ContentIdea;
+  businessContextId:  string;
+  calendarId:         string;
+  onUpdated:          (calendar: ContentCalendar) => void;
+  onError:            (message: string) => void;
+}) {
+  const [expanded,   setExpanded]   = useState(false);
+  const [generating,  setGenerating]  = useState(false);
 
   const dateObj    = new Date(idea.date + 'T12:00:00');
   const dayNum     = dateObj.getDate();
   const monthShort = dateObj.toLocaleString('en', { month: 'short' });
+  const canGenerate = Boolean(idea._id);
+
+  async function handleGenerateFullPost() {
+    if (!idea._id || generating) return;
+    setGenerating(true);
+    try {
+      const updated = await generateContentForIdea(businessContextId, calendarId, idea._id);
+      onUpdated(updated);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : 'Could not generate content.');
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   return (
     <div className="card overflow-hidden transition-all duration-200 hover:border-zinc-700">
@@ -85,6 +116,26 @@ function IdeaCard({ idea, index }: { idea: ContentIdea; index: number }) {
 
           <h4 className="font-semibold text-zinc-100 text-sm mb-1 leading-snug">{idea.title}</h4>
           <p className="text-xs text-zinc-400 leading-relaxed line-clamp-2">{idea.description}</p>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleGenerateFullPost}
+              disabled={!canGenerate || generating}
+              title={!canGenerate ? 'Re-generate the calendar once to attach idea ids, then try again' : 'Generate full post copy & visual brief'}
+              className="inline-flex items-center gap-1.5 text-xs font-medium rounded-lg px-2.5 py-1.5 border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {generating ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5" />
+              )}
+              {idea.generatedContent ? 'Regenerate post' : 'Generate full post'}
+            </button>
+            {!canGenerate && (
+              <span className="text-[10px] text-zinc-600">(save a new calendar for per-idea tools)</span>
+            )}
+          </div>
 
           {/* Expand toggle */}
           <button
@@ -141,6 +192,84 @@ function IdeaCard({ idea, index }: { idea: ContentIdea; index: number }) {
               {idea.justification}
             </p>
           </div>
+
+          {idea.generatedContent && (
+            <div className="space-y-4 border-t border-zinc-800/80 pt-4">
+              <p className="text-xs font-semibold text-amber-400/90 uppercase tracking-wide">Generated for this idea</p>
+
+              {(idea.generatedContent.generatedImageDataUrls?.length ?? 0) > 0 && (
+                <div>
+                  <span className="section-label">AI images</span>
+                  <p className="text-[10px] text-zinc-600 mt-0.5 mb-2">
+                    {[idea.generatedContent.imageModel, idea.generatedContent.imageSize].filter(Boolean).join(' · ')}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {(idea.generatedContent.generatedImageDataUrls ?? []).map((dataUrl, imgIdx) => (
+                      // data: URLs are not supported by next/image; use native img
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={imgIdx}
+                        src={dataUrl}
+                        alt={`Generated asset ${imgIdx + 1}`}
+                        className="w-full rounded-xl border border-zinc-800 object-cover max-h-80"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <span className="section-label">Primary caption</span>
+                <p className="text-sm text-zinc-200 mt-1 whitespace-pre-wrap leading-relaxed">
+                  {idea.generatedContent.primaryCaption}
+                </p>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <span className="section-label">Instagram</span>
+                  <p className="text-xs text-zinc-300 mt-1 whitespace-pre-wrap">{idea.generatedContent.platformCaptions.instagram}</p>
+                </div>
+                <div>
+                  <span className="section-label">Facebook</span>
+                  <p className="text-xs text-zinc-300 mt-1 whitespace-pre-wrap">{idea.generatedContent.platformCaptions.facebook}</p>
+                </div>
+              </div>
+
+              <div>
+                <span className="section-label">Visual direction</span>
+                <p className="text-xs text-zinc-400 mt-1 leading-relaxed">{idea.generatedContent.visualDirection}</p>
+              </div>
+
+              {idea.generatedContent.carouselFrameBriefs.length > 0 && (
+                <div>
+                  <span className="section-label">Carousel frames</span>
+                  <ol className="mt-1.5 list-decimal list-inside text-xs text-zinc-400 space-y-1">
+                    {idea.generatedContent.carouselFrameBriefs.map((b, j) => (
+                      <li key={j} className="pl-0.5">{b}</li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              <div>
+                <span className="section-label">CTA</span>
+                <p className="text-sm text-zinc-200 mt-0.5">{idea.generatedContent.callToAction}</p>
+              </div>
+
+              {idea.generatedContent.hashtags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {idea.generatedContent.hashtags.map((tag) => (
+                    <span key={tag} className="text-xs text-amber-400/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2 py-1">
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <p className="text-xs text-zinc-500 border-l-2 border-amber-500/20 pl-3">{idea.generatedContent.creatorNotes}</p>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -149,7 +278,13 @@ function IdeaCard({ idea, index }: { idea: ContentIdea; index: number }) {
 
 // ── Calendar view ─────────────────────────────────────────────────
 
-export default function CalendarView({ calendar, onBack }: Props) {
+export default function CalendarView({
+  calendar,
+  businessContextId,
+  onCalendarUpdate,
+  onError,
+  onBack,
+}: Props) {
   const [filter, setFilter] = useState<'all' | 'image' | 'carousel'>('all');
 
   const start    = new Date(calendar.startDate).toLocaleDateString('en', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -215,7 +350,14 @@ export default function CalendarView({ calendar, onBack }: Props) {
       {/* Ideas list */}
       <div className="space-y-3">
         {filtered.map((idea, i) => (
-          <IdeaCard key={`${idea.date}-${i}`} idea={idea} index={i} />
+          <IdeaCard
+            key={idea._id ?? `${idea.date}-${i}`}
+            idea={idea}
+            businessContextId={businessContextId}
+            calendarId={calendar._id}
+            onUpdated={onCalendarUpdate}
+            onError={onError}
+          />
         ))}
       </div>
     </div>

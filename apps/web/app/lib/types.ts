@@ -82,18 +82,35 @@ export interface BusinessContext {
   createdAt:   string;
 }
 
+export interface GeneratedIdeaContent {
+  primaryCaption:     string;
+  platformCaptions:   { instagram: string; facebook: string };
+  visualDirection:    string;
+  carouselFrameBriefs: string[];
+  hashtags:            string[];
+  callToAction:        string;
+  creatorNotes:        string;
+  /** data: URLs, ready for <img src> */
+  generatedImageDataUrls?: string[];
+  imageModel?:         string;
+  imageSize?:          string;
+  generatedAt:         string;
+}
+
 export interface ContentIdea {
-  date:             string;
-  dayOfWeek:        string;
-  title:            string;
-  description:      string;
-  suggestedCaption: string;
-  hashtags:         string[];
-  contentTheme:     string;
-  postType:         'image' | 'carousel';
-  platform:         'instagram' | 'facebook' | 'both';
-  bestTimeToPost:   string;
-  justification:    string;
+  _id?:                 string;
+  date:                 string;
+  dayOfWeek:            string;
+  title:                string;
+  description:          string;
+  suggestedCaption:     string;
+  hashtags:             string[];
+  contentTheme:         string;
+  postType:             'image' | 'carousel';
+  platform:             'instagram' | 'facebook' | 'both';
+  bestTimeToPost:       string;
+  justification:        string;
+  generatedContent?:   GeneratedIdeaContent;
 }
 
 export interface ContentCalendar {

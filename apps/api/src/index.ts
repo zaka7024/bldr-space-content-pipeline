@@ -9,10 +9,12 @@ import { authRouter } from './auth/presentation/router.js'
 import { authMiddleware } from './auth/middleware/auth.middleware.js'
 import { buildBusinessContext } from './content-pipeline/domain/services/business-context.service.js'
 import { generateContentCalendar } from './content-pipeline/domain/services/content-calendar.service.js'
+import { generateContentForIdea } from './content-pipeline/domain/services/content-generation.service.js'
 import { BusinessContextModel } from './content-pipeline/domain/models/business-context.model.js'
 import { ContentCalendarModel } from './content-pipeline/domain/models/content-calendar.model.js'
 import { buildBusinessContextDto } from './content-pipeline/presentation/dtos/build-business-context.dto.js'
 import { generateContentCalendarDto } from './content-pipeline/presentation/dtos/generate-content-calendar.dto.js'
+import { generateContentForIdeaBodyDto } from './content-pipeline/presentation/dtos/generate-content-for-idea.dto.js'
 
 type Env = { Variables: { userId: string } }
 
@@ -109,6 +111,52 @@ app.post('/content-calendar', authMiddleware, async (c) => {
   const doc = await generateContentCalendar(parsed.data)
   return c.json(doc, 201)
 })
+
+app.post(
+  '/content-calendar/:calendarId/ideas/:ideaId/generate',
+  authMiddleware,
+  async (c) => {
+    const userId = c.get('userId')
+    const { calendarId, ideaId } = c.req.param()
+
+    const raw = await c.req.json().catch(() => null)
+    if (raw === null) {
+      return c.json({ error: 'Invalid JSON body' }, 400)
+    }
+
+    const parsed = generateContentForIdeaBodyDto.safeParse(raw)
+    if (!parsed.success) {
+      return c.json({ error: 'Validation failed', issues: z.flattenError(parsed.error).fieldErrors }, 400)
+    }
+
+    if (!Types.ObjectId.isValid(calendarId) || !Types.ObjectId.isValid(ideaId)) {
+      return c.json({ error: 'Invalid id' }, 400)
+    }
+
+    const owns = await BusinessContextModel.exists({ _id: parsed.data.businessContextId, userId })
+    if (!owns) {
+      return c.json({ error: 'Not found' }, 404)
+    }
+
+    try {
+      const doc = await generateContentForIdea({
+        businessContextId: parsed.data.businessContextId,
+        calendarId,
+        ideaId,
+      })
+      return c.json(doc, 200)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Generation failed'
+      if (message === 'Invalid id') {
+        return c.json({ error: message }, 400)
+      }
+      if (/not found/i.test(message) || /may not have an id/i.test(message)) {
+        return c.json({ error: message }, 404)
+      }
+      throw err
+    }
+  },
+)
 
 // ── Boot ───────────────────────────────────────────────────────────
 

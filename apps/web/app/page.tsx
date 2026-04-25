@@ -231,6 +231,9 @@ export default function Home() {
         {stage === 'calendar' && calendar && (
           <CalendarView
             calendar={calendar}
+            businessContextId={calendar.businessContextId}
+            onCalendarUpdate={setCalendar}
+            onError={(msg) => setError(msg)}
             onBack={() => setStage('result')}
           />
         )}

@@ -74,3 +74,14 @@ export interface CalendarInput {
 export function generateCalendar(input: CalendarInput): Promise<ContentCalendar> {
   return request<ContentCalendar>('/content-calendar', { method: 'POST', body: JSON.stringify(input) });
 }
+
+export function generateContentForIdea(
+  businessContextId: string,
+  calendarId:        string,
+  ideaId:            string,
+): Promise<ContentCalendar> {
+  return request<ContentCalendar>(
+    `/content-calendar/${calendarId}/ideas/${ideaId}/generate`,
+    { method: 'POST', body: JSON.stringify({ businessContextId }) },
+  );
+}

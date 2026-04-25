@@ -36,7 +36,7 @@ const contentCalendarSchema = z.object({
 
 // ── Engagement analysis (pure TS, no AI) ─────────────────────────
 
-interface EngagementInsights {
+export interface EngagementInsights {
   instagram: {
     bestDays:       string[];
     bestPostType:   'image' | 'carousel';
@@ -148,7 +148,7 @@ function analyzeFacebook(data: FacebookScraperResult): EngagementInsights['faceb
   };
 }
 
-function deriveInsights(
+export function deriveInsights(
   instagram: InstagramAggregatedResult | null,
   facebook: FacebookScraperResult | null,
 ): EngagementInsights {
@@ -160,7 +160,7 @@ function deriveInsights(
 
 // ── Real content extractor ────────────────────────────────────────
 
-interface RealContent {
+export interface RealContent {
   instagram: {
     bio:            string;
     followers:      number;
@@ -174,7 +174,7 @@ interface RealContent {
   } | null;
 }
 
-function extractRealContent(
+export function extractRealContent(
   instagram: InstagramAggregatedResult | null,
   facebook:  FacebookScraperResult | null,
 ): RealContent {
@@ -245,23 +245,22 @@ function buildDateSlots(startDate: Date, daysRange: number): { date: string; day
 
 // ── Prompt builder ────────────────────────────────────────────────
 
-function buildPrompt(params: {
+/** Brand, channel and engagement context shared by calendar and single-idea generation. */
+export function getBrandContextPromptPrefix(params: {
   businessName:   string;
   brandVoice:     Record<string, unknown>;
   brand:          Record<string, unknown> | null;
   insights:       EngagementInsights;
   realContent:    RealContent;
-  dateSlots:      { date: string; dayOfWeek: string }[];
   websiteContent: { title: string; content: string }[];
 }): string {
-  const { businessName, brandVoice, brand, insights, realContent, dateSlots, websiteContent } = params;
+  const { businessName, brandVoice, brand, insights, realContent, websiteContent } = params;
 
   const websiteSummary = websiteContent
     .map((p) => `${p.title}: ${p.content}`.slice(0, 400))
     .join('\n')
     .slice(0, 1200);
 
-  // ── Instagram real content block ──
   const igRealBlock = realContent.instagram
     ? `
 Instagram profile:
@@ -276,7 +275,6 @@ ${realContent.instagram.topCaptions.map((c, i) =>
 ).join('\n')}`
     : 'No Instagram content available.';
 
-  // ── Facebook real content block ──
   const fbRealBlock = realContent.facebook
     ? `
 Facebook page: ${realContent.facebook.pageName}
@@ -287,7 +285,6 @@ ${realContent.facebook.topPosts.map((p, i) =>
 ).join('\n')}`
     : 'No Facebook content available.';
 
-  // ── Engagement stats block ──
   const igInsights = insights.instagram
     ? `
 Instagram engagement stats:
@@ -309,8 +306,6 @@ Facebook engagement stats:
   const brandColors = brand
     ? `Primary: ${(brand as any).colors?.primary ?? 'n/a'}, Secondary: ${(brand as any).colors?.secondary ?? 'n/a'}`
     : 'n/a';
-
-  const slots = dateSlots.map((s) => `${s.date} (${s.dayOfWeek})`).join(', ');
 
   return `
 You are a social media strategist for "${businessName}".
@@ -337,7 +332,23 @@ ${fbRealBlock}
 
 == ENGAGEMENT STATS ==
 ${igInsights}
-${fbInsights}
+${fbInsights}`.trim();
+}
+
+function buildPrompt(params: {
+  businessName:   string;
+  brandVoice:     Record<string, unknown>;
+  brand:          Record<string, unknown> | null;
+  insights:       EngagementInsights;
+  realContent:    RealContent;
+  dateSlots:      { date: string; dayOfWeek: string }[];
+  websiteContent: { title: string; content: string }[];
+}): string {
+  const { dateSlots } = params;
+  const prefix = getBrandContextPromptPrefix(params);
+  const slots = dateSlots.map((s) => `${s.date} (${s.dayOfWeek})`).join(', ');
+
+  return `${prefix}
 
 == TASK ==
 Generate exactly one content idea for EACH of the following dates:
@@ -369,8 +380,12 @@ export async function generateContentCalendar(input: GenerateContentCalendarInpu
 
   const ctx = context as any;
 
-  // 2. Derive engagement insights (pure TS)
+  // 2. Derive engagement insights and real post samples (pure TS)
   const insights = deriveInsights(
+    ctx.instagram as InstagramAggregatedResult | null,
+    ctx.facebook  as FacebookScraperResult | null,
+  );
+  const realContent = extractRealContent(
     ctx.instagram as InstagramAggregatedResult | null,
     ctx.facebook  as FacebookScraperResult | null,
   );
@@ -390,6 +405,7 @@ export async function generateContentCalendar(input: GenerateContentCalendarInpu
     brandVoice:     ctx.brandVoice,
     brand:          ctx.brand ?? null,
     insights,
+    realContent,
     dateSlots,
     websiteContent: (ctx.websiteContent ?? []) as { title: string; content: string }[],
   });
